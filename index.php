@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>KOL關鍵字分析工具 - 首頁</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    label { display: block; margin-top: 10px; }
+    input[type="text"], input[type="number"], input[type="email"], input[type="date"] {
+      width: 300px; padding: 5px; margin-top: 5px;
+    }
+    button { margin-top: 15px; padding: 8px 16px; }
+  </style>
+</head>
+<body>
+
+<h1>KOL關鍵字分析工具</h1>
+
+<form action="result.php" method="POST">
+  <label>想分析的對象：<input type="text" name="target"></label>
+  <label>資訊時期區間：
+    <input type="date" name="start_date"> ~ 
+    <input type="date" name="end_date">
+  </label>
+  <label>熱門新聞條數（上限20條）：<input type="number" name="news_count" max="20"></label>
+  <label>關鍵字數量（上限20個）：<input type="number" name="keyword_count" max="20"></label>
+
+  <button type="submit">分析關鍵字</button>
+</form>
+
+</body>
+</html>

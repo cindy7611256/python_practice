@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>KOL 關鍵字分析</title>
+</head>
+<body>
+  <h2>KOL 關鍵字分析工具</h2>
+
+  <div>
+    <label>想了解的對象：<input type="text" id="target"></label><br><br>
+    <label>欲擷取的關鍵字數量（上限20）：<input type="number" id="topk" value="10" min="1" max="20"></label><br><br>
+    <label>資訊時間區間：
+      <input type="date" id="start_date"> ～ <input type="date" id="end_date">
+    </label><br><br>
+    <button onclick="analyze()">分析關鍵字</button>
+  </div>
+
+  <div id="result"></div>
+  <div id="co_result"></div>
+  <div id="overlap_result"></div>
+
+  <script>
+    const mockTexts = [
+      "博恩的笑話很有趣，尤其是薩泰爾表演。",
+      "薩泰爾喜劇有很多對爸爸身分的玩笑。",
+      "鳥奴也是他的觀眾常提到的話題。",
+      "博恩新影片探討政治與喜劇的關係。",
+      "最近一場表演中，他談到身為父親的轉變。",
+    ];
+
+    async function analyze() {
+      const topk = document.getElementById("topk").value;
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texts: mockTexts, topk: topk })
+      });
+      const data = await res.json();
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "<h3>主要關鍵字</h3>";
+
+      for (let [kw, count] of data.keywords) {
+        const btn = document.createElement("button");
+        btn.innerText = kw + ` (${count})`;
+        btn.onclick = () => fetchCoKeywords(kw);
+        resultDiv.appendChild(btn);
+      }
+
+      document.getElementById("overlap_result").innerHTML = `
+        <br><button onclick="downloadCSV()">下載 關鍵字重疊性 CSV</button>
+      `;
+    }
+
+    async function fetchCoKeywords(keyword) {
+      const res = await fetch("/co_keywords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texts: mockTexts, keyword: keyword })
+      });
+      const data = await res.json();
+      const div = document.getElementById("co_result");
+      div.innerHTML = `<h3>與「${keyword}」共現的關鍵字</h3>`;
+      for (let [kw, count] of data.co_keywords) {
+        div.innerHTML += `<div>${kw} (${count})</div>`;
+      }
+    }
+
+    async function downloadCSV() {
+      const keywords1 = ["博恩", "薩泰爾", "笑話"];
+      const keywords2 = ["爸爸", "鳥奴", "影片"];
+      const res = await fetch("/overlap_export_csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          texts: mockTexts,
+          keywords1: keywords1,
+          keywords2: keywords2
+        })
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "overlap_result.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

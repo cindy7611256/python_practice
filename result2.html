@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>分析結果 - KOL關鍵字分析工具</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    label { display: block; margin-top: 10px; }
+    input[type="text"], input[type="email"] {
+      width: 300px; padding: 5px; margin-top: 5px;
+    }
+    .keyword { margin: 5px 0; cursor: pointer; color: blue; }
+    .keyword:hover { text-decoration: underline; }
+    .keyword-details { display: none; margin-left: 20px; color: #555; }
+  </style>
+  <script>
+    function toggleKeyword(id) {
+      const elem = document.getElementById(id);
+      elem.style.display = elem.style.display === 'none' ? 'block' : 'none';
+    }
+  </script>
+</head>
+<body>
+
+<h2>分析對象基本資料</h2>
+<form>
+  <label>本名：<input type="text" name="name"></label>
+  <label>出生年月日：<input type="text" name="dob"></label>
+  <label>星座：<input type="text" name="zodiac"></label>
+  <label>喜好/興趣：<input type="text" name="interests"></label>
+  <label>職業：<input type="text" name="job"></label>
+  <label>經紀公司：<input type="text" name="agency"></label>
+  <label>聯絡方式：<input type="text" name="contact"></label>
+  <label>聯絡信箱：<input type="email" name="email"></label>
+</form>
+
+<hr>
+
+<h2>相關關鍵字（遞減排序）</h2>
+<div>
+  <div class="keyword" onclick="toggleKeyword('kw1')">關鍵1 (次數)</div>
+  <div id="kw1" class="keyword-details">這裡是關鍵1的詳細資料表格</div>
+
+  <div class="keyword" onclick="toggleKeyword('kw2')">關鍵2 (次數)</div>
+  <div id="kw2" class="keyword-details">這裡是關鍵2的詳細資料表格</div>
+
+  <div class="keyword" onclick="toggleKeyword('kw3')">關鍵3 (次數)</div>
+  <div id="kw3" class="keyword-details">這裡是關鍵3的詳細資料表格</div>
+
+  <!-- 可依需要增加至關鍵12 -->
+</div>
+
+</body>
+</html>

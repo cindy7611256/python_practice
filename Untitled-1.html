@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>關鍵字分析器</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    textarea, input[type="date"] { width: 100%; padding: 8px; margin: 5px 0; }
+    button { padding: 10px 20px; margin-top: 10px; }
+    .result-section { margin-top: 30px; }
+    .clickable { color: blue; cursor: pointer; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>關鍵字分析器</h1>
+
+  <label for="inputTexts">請輸入多段文字 / 或想搜的關鍵字（可換行多筆）</label>
+  <textarea id="inputTexts" placeholder="例如：台積電\n通膨\n美元升息..."></textarea>
+
+  <label>搜尋期間：</label>
+  <div>
+    <input type="date" id="startDate"> 到 
+    <input type="date" id="endDate">
+  </div>
+
+  <button onclick="analyze()">送出分析</button>
+
+  <div class="result-section" id="keywordResult"></div>
+  <div class="result-section" id="cooccurResult"></div>
+  <div class="result-section" id="newsResult"></div>
+  <div class="result-section" id="downloadLink"></div>
+
+  <script>
+    async function analyze() {
+      const textsRaw = document.getElementById('inputTexts').value.trim();
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+
+      if (!textsRaw || !startDate || !endDate) {
+        alert("請填寫完整內容與搜尋區間！");
+        return;
+      }
+
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          texts: textsRaw.split('\n').filter(t => t.trim() !== ""),
+          start_date: startDate,
+          end_date: endDate
+        })
+      });
+
+      const data = await res.json();
+      renderResults(data);
+    }
+
+    function renderResults(data) {
+      // 主關鍵字 + 次數
+      let html = '<h2>主關鍵字統計</h2><ul>';
+      for (const [word, count] of data.keywords) {
+        html += `<li class="clickable" onclick="showCooccur('${word}')">${word} (${count})</li>`;
+      }
+      html += '</ul>';
+      document.getElementById('keywordResult').innerHTML = html;
+
+      // 熱門新聞
+      let newsHtml = '<h2>熱門新聞（依出現次數排序）</h2><ol>';
+      for (const news of data.top_news) {
+        newsHtml += `<li><a href="${news.url}" target="_blank">${news.title}</a> (${news.count})</li>`;
+      }
+      newsHtml += '</ol>';
+      document.getElementById('newsResult').innerHTML = newsHtml;
+
+      // 下載連結
+      document.getElementById('downloadLink').innerHTML = `
+        <a href="/download_csv?start=${data.range.start}&end=${data.range.end}" download="keyword_result.csv">下載分析結果（CSV）</a>
+      `;
+    }
+
+    async function showCooccur(keyword) {
+      const res = await fetch(`/cooccur?keyword=${encodeURIComponent(keyword)}`);
+      const data = await res.json();
+
+      let html = `<h2>與「${keyword}」共現次關鍵字</h2><ul>`;
+      for (const [subword, count] of data.co_keywords) {
+        html += `<li>${subword} (${count})</li>`;
+      }
+      html += '</ul>';
+      document.getElementById('cooccurResult').innerHTML = html;
+    }
+  </script>
+</body>
+</html>

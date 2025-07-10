@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Python 題庫系統</title>
+</head>
+<body>
+  <h1>Python 題庫練習</h1>
+  <select id="sheetSelector">
+    <option value="ITS Python 國際認證題庫 (一)">題庫（一）</option>
+    <option value="ITS Python 國際認證題庫 (二)">題庫（二）</option>
+    <option value="ALL">綜合</option>
+  </select>
+  <button onclick="startQuiz()">開始作答</button>
+  <div id="quiz"></div>
+
+  <script>
+    const spreadsheetId = '1Z2cLu7on9Xwx7upG5ojj-PWr76E8QvPCmFSev9QuTVU';
+    const apiKey = 'AIzaSyBGWm6KJloQe_VWVFlvQNXI1naHFLxLoxA'; // 請替換成你自己的API Key
+    const maxQuestions = 40;
+
+    let questions = [];
+    let queue = [];
+    let wrongLog = [];
+    let currentIndex = 0;
+
+    async function loadSheet(sheetName) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}?key=${apiKey}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const rows = json.values;
+      const headers = rows[0];
+      return rows.slice(1).map((r) => {
+        const obj = {};
+        headers.forEach((h, i) => {
+          obj[h] = r[i];
+        });
+        return obj;
+      });
+    }
+
+    async function startQuiz() {
+      const sel = document.getElementById('sheetSelector').value;
+      let arr = [];
+      if (sel === 'ALL') {
+        const a1 = await loadSheet('ITS Python 國際認證題庫 (一)');
+        const a2 = await loadSheet('ITS Python 國際認證題庫 (二)');
+        arr = a1.concat(a2);
+      } else {
+        arr = await loadSheet(sel);
+      }
+      questions = arr;
+      resetQuiz();
+    }
+
+    function resetQuiz() {
+      wrongLog = [];
+      currentIndex = 0;
+      queue = questions
+        .map((q, i) => ({ ...q, _id: i }))
+        .sort(() => 0.5 - Math.random())
+        .slice(0, maxQuestions); // 只取前 maxQuestions 題
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      if (currentIndex >= queue.length) {
+        showResults();
+        return;
+      }
+      const q = queue[currentIndex];
+      showQuestion(q, currentIndex + 1);
+      currentIndex++;
+    }
+
+    function showQuestion(q, seq) {
+  const div = document.getElementById('quiz');
+  const formattedQuestion = q.question.replace(/\n/g, '<br>');
+  const subQ = q.sub_question ? `<pre style="white-space: pre-wrap;">${q.sub_question}</pre>` : '';
+  const questionText = `<p><b>第${seq}題 (ID: ${q.id})</b></p><p>${formattedQuestion}</p>${subQ}`;
+
+  // 排序題處理
+  if (q.category === '排序題') {
+    const letters = q.answer.split('');
+    const optionsHtml = letters
+      .map((l, i) => {
+        const opt = q['option_' + l.toLowerCase()];
+        return opt
+          ? `<li class="sortable-item" draggable="true" data-val="${l}">(${l}) ${opt}</li>`
+          : '';
+      })
+      .join('');
+
+    div.innerHTML = `
+      ${questionText}
+      <p><b>請依照優先順序拖拉排列：</b></p>
+      <ul id="sortable" class="sortable-list">${optionsHtml}</ul>
+      <button onclick="submitAns(${currentIndex - 1}, '${q.answer}')">送出</button>
+      <style>
+        .sortable-list { list-style: none; padding: 0; }
+        .sortable-item { background: #eee; margin: 4px 0; padding: 8px; border-radius: 4px; cursor: grab; }
+        .sortable-item.dragging { opacity: 0.5; }
+      </style>
+    `;
+
+    enableSortable(); // 啟動拖拉功能
+    return;
+  }
+
+  // 一般選擇題
+  const opts = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    .map((l) =>
+      q['option_' + l]
+        ? `<label><input type="${
+            q.category === '複選題' ? 'checkbox' : 'radio'
+          }" name="ans" value="${l}"> (${l.toUpperCase()}) ${q['option_' + l]}</label><br>`
+        : ''
+    )
+    .filter(Boolean)
+    .join('');
+
+  div.innerHTML = `
+    ${questionText}
+    ${opts}
+    <button onclick="submitAns(${currentIndex - 1}, '${q.answer}')">送出</button>
+  `;
+}
+
+function submitAns(id, answer) {
+  const q = queue[id];
+
+  if (q.category === '排序題') {
+    const sortedEls = document.querySelectorAll('.sortable-item');
+    const selected = Array.from(sortedEls).map((el) => el.dataset.val);
+    const correct = answer.split('');
+    const ok = selected.join('') === correct.join('');
+    if (!ok) {
+      wrongLog.push({ ...q, yourAnswer: selected.join('') });
+    }
+    nextQuestion();
+    return;
+  }
+
+  // 其餘選擇題處理
+  const selected = Array.from(document.querySelectorAll('input[name=ans]:checked')).map(
+    (el) => el.value
+  );
+  const correct = answer.split(',');
+  const ok = correct.length === selected.length && correct.every((c) => selected.includes(c));
+  if (!ok) {
+    wrongLog.push({ ...q, yourAnswer: selected.join(',') });
+  }
+  nextQuestion();
+}
+
+// 拖拉排序功能
+function enableSortable() {
+  const list = document.getElementById('sortable');
+  let draggedItem = null;
+
+  list.addEventListener('dragstart', (e) => {
+    draggedItem = e.target;
+    e.target.classList.add('dragging');
+  });
+
+  list.addEventListener('dragend', (e) => {
+    e.target.classList.remove('dragging');
+    draggedItem = null;
+  });
+
+  list.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const afterElement = getDragAfterElement(list, e.clientY);
+    if (afterElement == null) {
+      list.appendChild(draggedItem);
+    } else {
+      list.insertBefore(draggedItem, afterElement);
+    }
+  });
+
+  function getDragAfterElement(container, y) {
+    const draggableElements = [
+      ...container.querySelectorAll('.sortable-item:not(.dragging)'),
+    ];
+
+    return draggableElements.reduce(
+      (closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      },
+      { offset: Number.NEGATIVE_INFINITY }
+    ).element;
+  }
+}
+
+
+    function submitAns(id, answer) {
+      const q = queue[id];
+      const selected = Array.from(document.querySelectorAll('input[name=ans]:checked')).map(
+        (el) => el.value
+      );
+      const correct = answer.split(',');
+      const ok =
+        correct.length === selected.length && correct.every((c) => selected.includes(c));
+      if (!ok) {
+        wrongLog.push({ ...q, yourAnswer: selected.join(',') });
+        // 錯題不放回隊列，直接略過
+      }
+      nextQuestion();
+    }
+
+    function showResults() {
+  const div = document.getElementById('quiz');
+  let html = `<h2>錯題清單（共 ${wrongLog.length} 題）</h2>`;
+  wrongLog.forEach((w, i) => {
+    const formattedQuestion = (w.question || '（題目資料遺失）').replace(/\n/g, '<br>');
+    const formattedExplanation = (w.explanation || '').replace(/\n/g, '<br>');
+    const yourAnswer = w.yourAnswer || '(沒作答)';
+    const correctAnswer = w.answer || '(無資料)';
+
+    const isWrong = yourAnswer !== correctAnswer;
+    const yourAnswerHtml = isWrong
+      ? `<span style="color:red;">${yourAnswer}</span>`
+      : yourAnswer;
+
+    html += `<div>
+      <p><b>${i + 1}.</b> ${formattedQuestion}</p>
+      <p>你答：${yourAnswerHtml}</p>
+      <p>正確：${correctAnswer}</p>
+      ${formattedExplanation ? `<p>解析：${formattedExplanation}</p>` : ''}
+    </div>`;
+  });
+  html += `<button onclick="resetQuiz()">再來一次</button>`;
+  div.innerHTML = html;
+}
+
+
+
+  </script>
+</body>
+</html>
